@@ -1,0 +1,1060 @@
+From e21620b5c4a10ae1f579f3766e184f9c4362647f Mon Sep 17 00:00:00 2001
+From: Kyle Wood <demonwav@gmail.com>
+Date: Sun, 16 Jun 2019 21:20:10 -0500
+Subject: [PATCH] Implement daemon mode to interop with paperd
+
+
+diff --git a/pom.xml b/pom.xml
+index 1f3571dd0..0e2c13b33 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -49,7 +49,6 @@
+             <groupId>net.java.dev.jna</groupId>
+             <artifactId>jna</artifactId>
+             <version>4.5.2</version>
+-            <scope>runtime</scope>
+         </dependency>
+         <!--
+           Required to add the missing Log4j2Plugins.dat file from log4j-core
+diff --git a/src/main/java/com/destroystokyo/paper/PaperDaemon.java b/src/main/java/com/destroystokyo/paper/PaperDaemon.java
+new file mode 100644
+index 000000000..eebf9f461
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/PaperDaemon.java
+@@ -0,0 +1,947 @@
++package com.destroystokyo.paper;
++
++import co.aikar.timings.SimpleTimingsReportListener;
++import co.aikar.timings.Timings;
++import com.google.common.collect.ImmutableList;
++import com.google.common.collect.ImmutableMap;
++import com.google.common.io.ByteArrayDataOutput;
++import com.google.common.io.ByteStreams;
++import com.google.gson.Gson;
++import com.sun.jna.LastErrorException;
++import com.sun.jna.Native;
++import com.sun.jna.NativeLong;
++import com.sun.jna.Pointer;
++import com.sun.jna.Structure;
++import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
++import it.unimi.dsi.fastutil.ints.Int2IntMap;
++import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
++import it.unimi.dsi.fastutil.ints.IntIterator;
++import it.unimi.dsi.fastutil.objects.ObjectIterator;
++import it.unimi.dsi.fastutil.shorts.Short2ObjectArrayMap;
++import java.io.InputStream;
++import java.io.OutputStream;
++import java.io.PrintStream;
++import java.nio.channels.AsynchronousCloseException;
++import java.nio.channels.spi.AbstractInterruptibleChannel;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.Paths;
++import java.util.List;
++import java.util.Locale;
++import java.util.concurrent.TimeUnit;
++import java.util.function.Consumer;
++import java.util.logging.Level;
++import java.util.logging.Logger;
++import java.util.stream.Collectors;
++import net.minecraft.server.DedicatedServer;
++import org.apache.commons.lang3.text.WordUtils;
++import org.bukkit.Bukkit;
++import org.bukkit.craftbukkit.CraftServer;
++import org.bukkit.entity.Player;
++import org.spigotmc.RestartCommand;
++
++public final class PaperDaemon {
++
++    /**
++     * This is the default PID file name that {@code paperd} will look for. This <i>must</i> exist for daemon mode to be
++     * enabled.
++     */
++    private static final String PID_FILE = "paper.pid";
++    /**
++     * A "message type" is included in the call to create and send messages to an XSI Message Queue. This magic constant
++     * is used both by {@code Paper} and {@code paperd}, they <i>must</i> match.
++     */
++    private static final long MESSAGE_TYPE = 0x7654;
++    /**
++     * The return exit code to give to {@link System#exit(int) System.exit()} in order for {@code paperd} to
++     * automatically restart the server. {@link #restartExitCode()} is used as a helper method to only return this value
++     * when the server is in {@link #IS_DAEMON daemon mode}, as this value is only applicable when run by
++     * {@code paperd}.
++     */
++    private static final int RESTART_EXIT_CODE = 27;
++
++    private static final Gson gson = new Gson();
++
++    /**
++     * Used to synchronize {@link #messageMap}.
++     */
++    private static final Object messageLock = new Object();
++    /**
++     * Used to synchronize {@link #channelMap}.
++     */
++    private static final Object channelLock = new Object();
++
++    /**
++     * Stores data from message queue messages to build a full string through multiple messages. Kept as {@code null}
++     * while not in use, and all accesses must be synchronized through {@link #messageLock}.
++     */
++    private static Int2ObjectArrayMap<ByteArrayDataOutput> messageMap = null;
++    /**
++     * Stores client channels associated with their PID. Will be checked periodically to make sure there aren't open
++     * channels after their owning PID is gone, i.e. the {@code paperd} process crashed. Kept as {@code null} while
++     * not in use, and all accesses must be synchronized through {@link #channelLock}.
++     */
++    private static Int2IntArrayMap channelMap = null;
++
++    private static Thread messageThread = null;
++    private static Thread cleanupThread = null;
++
++    /**
++     * {@code true} if daemon mode has been enabled for the server. This is defined by whether or not the
++     * {@code io.papermc.daemon.enabled property} system property was set to {@code true} at startup.
++     */
++    public static final boolean IS_DAEMON;
++
++    static {
++        IS_DAEMON = "true".equals(System.getProperty("io.papermc.daemon.enabled"));
++    }
++
++    /**
++     * Returns the exit code which will tell {@code paperd} to restart the server if the server is in
++     * {@link #IS_DAEMON daemon mode}. This value is {@link #RESTART_EXIT_CODE}. If the server is <i>not</i> in
++     * {@link #IS_DAEMON daemon mode}, {@code 0} is returned.
++     */
++    public static int restartExitCode() {
++        if (IS_DAEMON) {
++            return RESTART_EXIT_CODE;
++        } else {
++            return 0;
++        }
++    }
++
++    /**
++     * Setups up the necessary infrastructure for running the server in daemon mode if <b>both</b> of the following
++     * are true:
++     * <ul>
++     *   <li>The {@code io.papermc.daemon.enabled property} is set to {@code true}</li>
++     *   <li>The OS is Unix, namely Linux and macOS are checked</li>
++     * </ul>
++     * In the instance that the above checks are satisfied, the following things will happen:
++     * <ul>
++     *   <li>{@code stdout} ({@link System#out}) will be closed</li>
++     *   <li>{@code stderr} ({@link System#err}) will be closed</li>
++     *   <li>{@code stdin} ({@link System#in}) will be closed</li>
++     *   <li>A XSI Message Queue will be opened using the PID file {@code paper.pid} (this will allow
++     *   {@code paperd} to communicate with the running server)</li>
++     *   <li>This method will return {@code true}</li>
++     * </ul>
++     * <p>
++     * If the above checks are not satisfied, this method does nothing and will return {@code false}.
++     *
++     * @return {@code true} if the server is running in daemon mode.
++     */
++    public static boolean init() {
++        if (!IS_DAEMON) {
++            return false;
++        }
++
++        final String osName = System.getProperty("os.name").toLowerCase(Locale.ENGLISH);
++        if (!osName.contains("nux") && !osName.contains("nix") &&
++            !osName.contains("mac os") && !osName.contains("macos")
++        ) {
++            System.out.println("ERROR: Property io.papermc.daemon.enabled was true, but this is not running on a " +
++                "Unix system, so the option will be ignored.");
++            System.out.println("    System type: " + osName);
++            return false;
++        }
++
++        final Path pidFile = Paths.get(PID_FILE);
++        if (!Files.exists(pidFile)) {
++            System.out.println("ERROR: PID file not found: " + pidFile.toAbsolutePath());
++            System.out.println("    Did you start this from paperd?");
++            System.out.println("    Stopping the server due to previous error.");
++            System.exit(1);
++            throw new InternalError();
++        }
++
++        // Create message queue
++        final int msqid = beginMessageLoop(pidFile);
++        registerShutdownHook(msqid);
++
++        // When running as a daemon, we won't have stdout, stderr, and stdin
++        // If we leave this around as normal then that will cause crashes elsewhere,
++        // since paperd has already closed them
++        // Set them to a PrintStream which does nothing, rather than null, to prevent NPE errors
++        final PrintStream stream = new PrintStream(new OutputStream() {
++            @Override
++            public void write(int b) {
++            }
++        });
++        System.setOut(stream);
++        System.setErr(stream);
++
++        System.setIn(new InputStream() {
++            @Override
++            public int read() {
++                // block forever
++                // noinspection InfiniteLoopStatement
++                while (true) {
++                    try {
++                        this.wait();
++                    } catch (final InterruptedException ignored) {
++                    }
++                }
++            }
++        });
++
++        return true;
++    }
++
++    /**
++     * Registers a {@link Runtime#addShutdownHook(Thread) shutdown hook} to remove the XSI Message Queue at
++     * shutdown. Message queues are not cleaned up when all processes using it finish, they will hang around until
++     * reboot if not cleaned up. We can't handle cases where the JVM is killed unexpectedly with {@code SIGKILL}, but
++     * this will allow us to handle most other cases.
++     *
++     * @param msqid The queue id to remove.
++     */
++    private static void registerShutdownHook(final int msqid) {
++        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
++            // Tell the message queue loop it should quit
++            final Thread mThread = messageThread;
++            if (mThread != null) {
++                mThread.interrupt();
++            }
++
++            final Thread cThread = cleanupThread;
++            if (cThread != null) {
++                cThread.interrupt();
++            }
++
++            // if messageThread is still active then give it a little more time to complete
++            if (mThread != null) {
++                try {
++                    mThread.join(TimeUnit.SECONDS.toMillis(1));
++                } catch (final InterruptedException ignored) {
++                }
++            }
++
++            try {
++                IPCLibrary.msgctl(msqid, IPCLibrary.IPC_RMID, Pointer.NULL);
++            } catch (final LastErrorException e) {
++                final String msg = IPCLibrary.strerror(e.getErrorCode());
++                throw new PaperDaemonException("Failed to delete IPC message queue: " + msg);
++            }
++        }));
++    }
++
++    /**
++     * Begins listening and responding to XSI Message Queue messages. This method will loop forever in a
++     * separate {@link Thread#setDaemon(boolean) daemon} thread.
++     * <p>
++     * The message queue will be attempted to be closed in the {@link Runtime#addShutdownHook(Thread) shutdown hook}
++     * added by the {@link #registerShutdownHook(int) registerShutdownHook}, this method cannot cleanup after itself.
++     * Because of this, {@link #registerShutdownHook(int) registerShutdownHook} must be called after this method with
++     * the return value of this method as input.
++     *
++     * @return The msqid of the created queue.
++     */
++    private static int beginMessageLoop(final Path pidFile) {
++        final String pidPath = pidFile.toAbsolutePath().toString();
++        final int key;
++        try {
++            key = IPCLibrary.ftok(pidPath, 'P');
++        } catch (final LastErrorException e) {
++            final String msg = IPCLibrary.strerror(e.getErrorCode());
++            throw new PaperDaemonException("Failed to retrieve IPC message queue key: " + msg);
++        }
++
++        final int msqid;
++        try {
++            //noinspection OctalInteger
++            msqid = IPCLibrary.msgget(new NativeLong(key), 0666 | IPCLibrary.IPC_CREAT);
++        } catch (final LastErrorException e) {
++            final String msg = IPCLibrary.strerror(e.getErrorCode());
++            throw new PaperDaemonException("Failed to get or create IPC message queue: " + msg);
++        }
++
++        messageThread = new Thread(() -> {
++            while (!Thread.interrupted()) {
++                try {
++                    doMessageLoop(msqid);
++                } catch (final InterruptedException e) {
++                    break;
++                }
++            }
++        });
++        messageThread.setDaemon(true);
++        messageThread.setName("IPC Message Queue Thread");
++        messageThread.start();
++
++        cleanupThread = new Thread(() -> {
++            while (!Thread.interrupted()) {
++                try {
++                    cleanupBuffers();
++                    Thread.sleep(TimeUnit.SECONDS.toMillis(10));
++                } catch (final InterruptedException e) {
++                    break;
++                }
++            }
++        });
++        cleanupThread.setDaemon(true);
++        cleanupThread.setName("IPC Message Queue Buffer Cleanup Thread");
++        cleanupThread.start();
++
++        return msqid;
++    }
++
++    static class InterruptibleMessageCall extends AbstractInterruptibleChannel {
++        private final int msqid;
++
++        InterruptibleMessageCall(final int msqid) {
++            this.msqid = msqid;
++        }
++
++        void doCall(final IPCLibrary.MsgBuf buf) throws LastErrorException, InterruptedException {
++            try {
++                begin();
++                IPCLibrary.msgrcv(msqid, buf, buf.data.size(), MESSAGE_TYPE, 0);
++                if (buf.data.messageType == Short.MAX_VALUE) {
++                    throw new InterruptedException();
++                }
++            } finally {
++                try {
++                    end(true);
++                } catch (final AsynchronousCloseException ignored) {
++                }
++            }
++        }
++
++        @Override
++        protected void implCloseChannel() {
++            // Our way of "cancelling" a call is to give msgrcv something to return
++            final IPCLibrary.MsgBuf buf = new IPCLibrary.MsgBuf();
++            buf.data.messageType = Short.MAX_VALUE;
++            IPCLibrary.msgsnd(msqid, buf, buf.data.size(), 0);
++        }
++    }
++
++    /**
++     * Executes a single iteration of the message loo p handler thread. This should be called in an infinite loop inside
++     * a {@link Thread#setDaemon(boolean) daemon thread}.
++     *
++     * @param msqid The message queue id to use to listen for messages.
++     */
++    private static void doMessageLoop(final int msqid) throws InterruptedException {
++        final IPCLibrary.MsgBuf buf = new IPCLibrary.MsgBuf();
++
++        try {
++            new InterruptibleMessageCall(msqid).doCall(buf);
++        } catch (final LastErrorException e) {
++            final int code = e.getErrorCode();
++            final String msg = IPCLibrary.strerror(code);
++            log(logger -> logger.warning("Failed to read from message queue: " + msg));
++            return;
++        }
++
++        final byte mask = (byte) 0x80;
++        final boolean isFin = (buf.data.messageLength & mask) == mask;
++        final int length = buf.data.messageLength & (byte) 0x7F;
++
++        final ByteArrayDataOutput buffer;
++        synchronized (messageLock) {
++            if (messageMap == null) {
++                messageMap = new Int2ObjectArrayMap<>();
++            }
++            //noinspection UnstableApiUsage
++            buffer = messageMap.computeIfAbsent(buf.data.responsePid, i -> ByteStreams.newDataOutput());
++        }
++        buffer.write(buf.data.message, 0, length);
++
++        if (isFin) {
++            if (buf.data.responseChan != -1) {
++                synchronized (channelLock) {
++                    if (channelMap == null) {
++                        channelMap = new Int2IntArrayMap();
++                    }
++                    channelMap.put(buf.data.responsePid, buf.data.responseChan);
++                }
++            }
++
++            final String message = new String(buffer.toByteArray(), StandardCharsets.UTF_8);
++            handleMessage(buf.data.messageType, message, buf.data.responseChan);
++
++            synchronized (messageLock) {
++                if (messageMap != null) {
++                    messageMap.remove(buf.data.responsePid);
++                    if (messageMap.isEmpty()) {
++                        messageMap = null;
++                    }
++                }
++            }
++        }
++    }
++
++    private static void handleMessage(final short messageType, final String message, final int responseChan) {
++        final Class<? extends Message> clazz = Message.messageTypeMap.get(messageType);
++        if (clazz == null) {
++            log(logger -> logger.warning("Unknown message type: " + messageType));
++            return;
++        }
++        final Message handler = gson.fromJson(message, clazz);
++        try {
++            handler.execute(responseChan);
++        } catch (final Throwable t) {
++            log(logger -> logger.log(Level.SEVERE, "Exception thrown in IPC Message Handler: " + clazz.getName(), t));
++        }
++    }
++
++    /**
++     * Check each {@code PID} in {@link #messageMap} and {@link #channelMap} and make sure each process is still alive.
++     * Remove any buffers corresponding with a non-existent PID. This effectively prevents memory leaks from holding
++     * onto buffers for processes which will never complete.
++     */
++    private static void cleanupBuffers() {
++        messages:
++        synchronized (messageLock) {
++            if (messageMap == null) {
++                break messages;
++            }
++
++            final IntIterator iter = messageMap.keySet().iterator();
++            while (iter.hasNext()) {
++                final int pid = iter.nextInt();
++                if (!checkExists(pid)) {
++                    iter.remove();
++                }
++            }
++
++            if (messageMap.isEmpty()) {
++                messageMap = null;
++            }
++        }
++
++        channels:
++        synchronized (channelLock) {
++            if (channelMap == null) {
++                break channels;
++            }
++
++            final ObjectIterator<Int2IntMap.Entry> iter = channelMap.int2IntEntrySet().fastIterator();
++            while (iter.hasNext()) {
++                final Int2IntMap.Entry entry = iter.next();
++
++                final int pid = entry.getIntKey();
++                if (checkExists(pid)) {
++                    continue;
++                }
++                iter.remove();
++
++                try {
++                    IPCLibrary.msgctl(entry.getIntValue(), IPCLibrary.IPC_RMID, Pointer.NULL);
++                } catch (final LastErrorException ignored) {
++                }
++            }
++
++            if (channelMap.isEmpty()) {
++                channelMap = null;
++            }
++        }
++    }
++
++    private static boolean checkExists(final int pid) {
++        try {
++            IPCLibrary.kill(pid, 0);
++        } catch (final LastErrorException e) {
++            final int code = e.getErrorCode();
++            if (code != IPCLibrary.ESRCH) {
++                final String msg = IPCLibrary.strerror(code);
++                log(logger -> logger.warning("Failed to check PID " + pid + ": " + msg));
++            }
++            return false;
++        }
++        return true;
++    }
++
++    private static class IPCLibrary {
++        static final int IPC_RMID = 0;
++        @SuppressWarnings("OctalInteger")
++        static final int IPC_CREAT = 01000;
++        // No such process
++        static final int ESRCH = 3;
++
++        static {
++            Native.register("c");
++        }
++
++        @SuppressWarnings("WeakerAccess")
++        public static class MsgBuf extends Structure {
++            public NativeLong mType;
++            public Data data;
++
++            public MsgBuf() {
++                this.mType = new NativeLong(MESSAGE_TYPE);
++                this.data = new IPCLibrary.Data();
++            }
++
++            @Override
++            protected List<String> getFieldOrder() {
++                return ImmutableList.of("mType", "data");
++            }
++        }
++
++        @SuppressWarnings("WeakerAccess")
++        public static class Data extends Structure {
++            public static final int MESSAGE_LENGTH = 100;
++
++            public int responseChan;
++            public int responsePid;
++            public short messageType;
++            public byte messageLength;
++            public byte[] message = new byte[MESSAGE_LENGTH];
++
++            @Override
++            protected List<String> getFieldOrder() {
++                return ImmutableList.of("responseChan", "responsePid", "messageType", "messageLength", "message");
++            }
++        }
++
++        /**
++         * ftok - convert a pathname and a project identifier to a System V IPC key
++         * <p/>
++         * <pre>{@literal
++         * #include <sys/types.h>
++         * #include <sys/ipc.h>
++         *
++         * key_t ftok(const char *pathname, int proj_id);
++         * }</pre>
++         */
++        public static native int ftok(String pathname, int proj_id) throws LastErrorException;
++
++        /**
++         * msgget — get the XSI message queue identifier
++         * <p/>
++         * <pre>{@literal
++         * #include <sys/msg.h>
++         *
++         * int msgget(key_t key, int msgflg);
++         * }</pre>
++         */
++        public static native int msgget(NativeLong key, int msgflg) throws LastErrorException;
++
++        /**
++         * msgsnd — XSI message send operation
++         * <p/>
++         * <pre>{@literal
++         * #include <sys/msg.h>
++         *
++         * int msgsnd(int msqid, const void *msgp, size_t msgsz, int msgflg);
++         * }</pre>
++         */
++        public static native int msgsnd(int msqid, MsgBuf msgp, int msgsz, int msgflg) throws LastErrorException;
++
++        /**
++         * msgrcv — XSI message receive operation
++         * <p/>
++         * <pre>{@literal
++         * #include <sys/msg.h>
++         *
++         * ssize_t msgrcv(int msqid, void *msgp, size_t msgsz, long msgtyp,
++         *     int msgflg);
++         * }</pre>
++         */
++        public static native int msgrcv(int msqid, MsgBuf msgp, int msgsz, long msgtyp, int msgflg)
++            throws LastErrorException;
++
++        /**
++         * msgctl — XSI message control operations
++         * <p/>
++         * <pre>{@literal
++         * #include <sys/msg.h>
++         *
++         * int msgctl(int msqid, int cmd, struct msqid_ds *buf);
++         * }</pre>
++         */
++        public static native int msgctl(int msqid, int cmd, Pointer buf) throws LastErrorException;
++
++        /**
++         * strerror - return string describing error number
++         * <p/>
++         * <pre>{@literal
++         * #include <string.h>
++         *
++         * char *strerror(int errnum);
++         * }</pre>
++         */
++        public static native String strerror(int errnum);
++
++        /**
++         * kill - send signal to a process
++         * <p/>
++         * <pre>{@literal
++         * #include <sys/types.h>
++         * #include <signal.h>
++         *
++         * int kill(pid_t pid, int sig);
++         * }</pre>
++         */
++        public static native int kill(int pid, int sig) throws LastErrorException;
++    }
++
++    private interface Message {
++        Short2ObjectArrayMap<Class<? extends Message>> messageTypeMap = new Short2ObjectArrayMap<>(ImmutableMap.of(
++            (short) 0, StopMessage.class,
++            (short) 1, SendCommandMessage.class,
++            (short) 2, StatusMessage.class,
++            (short) 3, RestartMessage.class,
++            (short) 4, TimingsMessage.class
++        ));
++
++        void execute(final int responseChan);
++
++        /**
++         * Stops the server gracefully.
++         */
++        class StopMessage implements Message {
++            @Override
++            public void execute(final int responseChan) {
++                final DedicatedServer server = getConsole();
++                if (server == null) {
++                    serverNotReadyYet(responseChan);
++                    return;
++                }
++                log(logger -> logger.info("Shutdown command received from paperd"));
++                server.scheduleOnMain(Bukkit::shutdown);
++            }
++        }
++
++        /**
++         * A command to be executed on the server as the console sender.
++         */
++        class SendCommandMessage implements Message {
++            String message;
++
++            @Override
++            public void execute(final int responseChan) {
++                final DedicatedServer server = getConsole();
++                if (server == null) {
++                    serverNotReadyYet(responseChan);
++                    return;
++                }
++                log(logger -> logger.info("Command received from paperd: " + message));
++                server.scheduleOnMain(() ->
++                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), message));
++            }
++        }
++
++        /**
++         * Returns various bits of status information about the server:
++         * <ul>
++         *   <li>Server Name</li>
++         *   <li>Server Version</li>
++         *   <li>API Version</li>
++         *   <li>Server Address</li>
++         *   <li>Server Name</li>
++         *   <li>All Players</li>
++         *   <li>World Info<ul>
++         *       <li>Name</li>
++         *       <li>Dimension</li>
++         *       <li>Seed</li>
++         *       <li>Difficulty</li>
++         *       <li>Players</li>
++         *       <li>Time</li>
++         *   </ul></li>
++         *   <li>TPS</li>
++         *   <li>Memory Usage</li>
++         * </ul>
++         */
++        class StatusMessage implements Message {
++            @Override
++            public void execute(final int responseChan) {
++                final DedicatedServer server = getConsole();
++                if (server == null) {
++                    serverNotReadyYet(responseChan);
++                    return;
++                }
++                server.scheduleOnMain(() -> {
++                    final String motd = Bukkit.getMotd();
++                    final String serverName = Bukkit.getName();
++                    final String serverVersion = Bukkit.getVersion();
++                    final String apiVersion = Bukkit.getBukkitVersion();
++                    final List<String> players = Bukkit.getOnlinePlayers().stream()
++                        .map(Player::getDisplayName).collect(Collectors.toList());
++
++                    final List<WorldStatus> worlds = Bukkit.getWorlds().stream().map(world -> {
++                        final String name = world.getName();
++                        final String dimension =
++                            WordUtils.capitalizeFully(world.getEnvironment().name().replace('_', ' '));
++                        final long seed = world.getSeed();
++                        final String difficulty =
++                            WordUtils.capitalizeFully(world.getDifficulty().name().replace('_', ' '));
++                        final List<String> worldPlayers =
++                            world.getPlayers().stream().map(Player::getDisplayName).collect(Collectors.toList());
++                        final String time = String.valueOf((int) Math.floor((double) world.getTime() / 10.0));
++
++                        return new WorldStatus(name, dimension, seed, difficulty, worldPlayers, time);
++                    }).collect(Collectors.toList());
++
++                    final double[] tps = Bukkit.getTPS();
++
++                    final long freeMem = Runtime.getRuntime().freeMemory();
++                    final long currentMem = Runtime.getRuntime().totalMemory();
++                    final long maxMem = Runtime.getRuntime().maxMemory();
++
++                    sendMessage(responseChan, new StatusMessageResponse(
++                        motd, serverName, serverVersion, apiVersion, players, worlds,
++                        new TpsStatus(tps),
++                        new MemoryStatus(freeMem, currentMem, maxMem)
++                    ));
++                });
++            }
++
++            static class StatusMessageResponse {
++                final String motd;
++                final String serverName;
++                final String serverVersion;
++                final String apiVersion;
++                final List<String> players;
++                final List<WorldStatus> worlds;
++                final TpsStatus tps;
++                final MemoryStatus memoryUsage;
++
++                StatusMessageResponse(
++                    final String motd,
++                    final String serverName,
++                    final String serverVersion,
++                    final String apiVersion,
++                    final List<String> players,
++                    final List<WorldStatus> worlds,
++                    final TpsStatus tps,
++                    final MemoryStatus memoryUsage
++                ) {
++                    this.motd = motd;
++                    this.serverName = serverName;
++                    this.serverVersion = serverVersion;
++                    this.apiVersion = apiVersion;
++                    this.players = players;
++                    this.worlds = worlds;
++                    this.tps = tps;
++                    this.memoryUsage = memoryUsage;
++                }
++            }
++
++            static class WorldStatus {
++                final String name;
++                final String dimension;
++                final long seed;
++                final String difficulty;
++                final List<String> players;
++                final String time;
++
++                WorldStatus(
++                    final String name,
++                    final String dimension,
++                    final long seed,
++                    final String difficulty,
++                    final List<String> players,
++                    final String time
++                ) {
++                    this.name = name;
++                    this.dimension = dimension;
++                    this.seed = seed;
++                    this.difficulty = difficulty;
++                    this.players = players;
++                    this.time = time;
++                }
++            }
++
++            static class TpsStatus {
++                final double oneMin;
++                final double fiveMin;
++                final double fifteenMin;
++
++                TpsStatus(final double[] mins) {
++                    this.oneMin = mins[0];
++                    this.fiveMin = mins[1];
++                    this.fifteenMin = mins[2];
++                }
++            }
++
++            static class MemoryStatus {
++                final String usedMemory;
++                final String totalMemory;
++                final String maxMemory;
++
++                MemoryStatus(final long freeMemory, final long totalMemory, final long maxMemory) {
++                    final long usedMemory = totalMemory - freeMemory;
++                    this.usedMemory = (usedMemory / 1_000_000) + " MB";
++                    this.totalMemory = (totalMemory / 1_000_000) + " MB";
++                    this.maxMemory = maxMemory == Long.MAX_VALUE ? "Not Set" : ((maxMemory / 1_000_000) + " MB");
++                }
++            }
++        }
++
++        class RestartMessage implements Message {
++            @Override
++            public void execute(final int responseChan) {
++                final DedicatedServer server = getConsole();
++                if (server == null) {
++                    serverNotReadyYet(responseChan);
++                    return;
++                }
++                log(logger -> logger.info("Restart command received from paperd"));
++                server.scheduleOnMain(() -> RestartCommand.shutdownServer(true));
++            }
++        }
++
++        class TimingsMessage implements Message {
++            @Override
++            public void execute(final int responseChan) {
++                final DedicatedServer server = getConsole();
++                if (server == null) {
++                    serverNotReadyYet(responseChan);
++                    return;
++                }
++
++                log(logger -> logger.info("Timings command received from paperd"));
++                server.scheduleOnMain(() -> {
++                    if (!Timings.isTimingsEnabled()) {
++                        sendMessage(responseChan, new TimingsMessageResponse("Timings is not enabled"));
++                        return;
++                    }
++
++                    Timings.generateReport(new SimpleTimingsReportListener() {
++                        @Override
++                        public void sendMessage(@SuppressWarnings("NullableProblems") final String message) {
++                            PaperDaemon.sendMessage(responseChan, new TimingsMessageResponse(message));
++                        }
++
++                        @Override
++                        public void done() {
++                            PaperDaemon.sendMessage(responseChan, new TimingsMessageResponse());
++                        }
++                    });
++                });
++            }
++
++            static class TimingsMessageResponse {
++                final String message;
++                final boolean done;
++
++                TimingsMessageResponse() {
++                    this.message = null;
++                    this.done = true;
++                }
++                TimingsMessageResponse(final String message) {
++                    this.message = message;
++                    this.done = false;
++                }
++            }
++        }
++    }
++
++    private static void sendMessage(final int channel, final Object data) {
++        final String json = gson.toJson(data);
++
++        final byte[] rawData = json.getBytes(StandardCharsets.UTF_8);
++
++        int index = 0;
++        while (index < rawData.length) {
++            final int size = Math.min(rawData.length - index, IPCLibrary.Data.MESSAGE_LENGTH);
++
++            try {
++                sendPagedMessage(channel, rawData, index, size, index + size == rawData.length);
++            } catch (final LastErrorException e) {
++                final String msg = IPCLibrary.strerror(e.getErrorCode());
++                log(logger -> logger.warning("Failed to send to message queue: " + msg));
++                return;
++            }
++
++            index += size;
++        }
++    }
++
++    private static void sendPagedMessage(
++        final int channel,
++        final byte[] data,
++        final int index,
++        final int length,
++        final boolean isFin
++    ) throws LastErrorException {
++        final IPCLibrary.MsgBuf buf = new IPCLibrary.MsgBuf();
++
++        System.arraycopy(data, index, buf.data.message, 0, length);
++        buf.data.messageLength = (byte) length;
++        if (isFin) {
++            buf.data.messageLength |= (byte) 0x80;
++        }
++
++        IPCLibrary.msgsnd(channel, buf, buf.data.size(), 0);
++    }
++
++    static class ServerErrorMessage {
++        final String error;
++
++        ServerErrorMessage(final String message) {
++            this.error = message;
++        }
++    }
++
++    private static void serverNotReadyYet(final int channel) {
++        sendMessage(channel, new ServerErrorMessage("Server not ready yet"));
++    }
++
++    // The code in this file can sometimes run much sooner than CraftBukkit has had time to initialize. With this taken
++    // into consideration, extra care must be taken to prevent NPEs from code which would always be safe in normal
++    // conditions.
++    //
++
++    private static CraftServer getCraftServer() {
++        return (CraftServer) Bukkit.getServer();
++    }
++
++    private static DedicatedServer getConsole() {
++        final CraftServer server = getCraftServer();
++        //noinspection ConstantConditions
++        if (server == null) {
++            return null;
++        }
++        return server.console;
++    }
++
++    /**
++     * Provide a {@code consumer} to use to execute a log statement immediately, or in the future once the system Logger
++     * is available if it is not already. This method exists because there may be cases where important log messages are
++     * printed before the server has fully started and the system logger has been created. In these cases, to make sure
++     * no critical information is lost due to this, this method will create a new thread to wait for the system logger
++     * to become available before executing the provided {@code consumer}. The cost of creating a new thread is
++     * negligible as this will likely rarely, if ever, happen, and if it does the volume will likely not go much higher
++     * than 1.
++     *
++     * @param consumer The {@link Consumer} to execute with the system logger once it is available.
++     */
++    private static void log(final Consumer<Logger> consumer) {
++        {
++            final CraftServer server = getCraftServer();
++            //noinspection ConstantConditions
++            if (server != null) {
++                consumer.accept(server.getLogger());
++                return;
++            }
++        }
++
++        final Thread t = new Thread(() -> {
++            while (true) {
++                try {
++                    Thread.sleep(500);
++                } catch (final InterruptedException ignored) {
++                }
++
++                final CraftServer server = getCraftServer();
++                if (server != null) {
++                    consumer.accept(server.getLogger());
++                    return;
++                }
++            }
++        });
++        t.setDaemon(true);
++        t.start();
++    }
++
++    static class PaperDaemonException extends RuntimeException {
++        PaperDaemonException(final String message) {
++            super(message);
++        }
++    }
++}
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index cba4ef0e1..1956503f6 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -210,7 +210,7 @@ public final class CraftServer implements Server {
+     private final SimpleHelpMap helpMap = new SimpleHelpMap(this);
+     private final StandardMessenger messenger = new StandardMessenger();
+     private final SimplePluginManager pluginManager = new SimplePluginManager(this, commandMap);
+-    protected final DedicatedServer console;
++    public final DedicatedServer console; // Paper - make public
+     protected final DedicatedPlayerList playerList;
+     private final Map<String, World> worlds = new LinkedHashMap<String, World>();
+     private YamlConfiguration configuration;
+diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
+index 1fa81904d..0470d72d8 100644
+--- a/src/main/java/org/bukkit/craftbukkit/Main.java
++++ b/src/main/java/org/bukkit/craftbukkit/Main.java
+@@ -20,6 +20,8 @@ public class Main {
+     public static boolean useConsole = true;
+ 
+     public static void main(String[] args) {
++        if (com.destroystokyo.paper.PaperDaemon.init()) { useJline = false; useConsole = false; } // Paper - daemon mode
++
+         // Todo: Installation script
+         OptionParser parser = new OptionParser() {
+             {
+diff --git a/src/main/java/org/spigotmc/RestartCommand.java b/src/main/java/org/spigotmc/RestartCommand.java
+index aefea3a9a..e6449e10e 100644
+--- a/src/main/java/org/spigotmc/RestartCommand.java
++++ b/src/main/java/org/spigotmc/RestartCommand.java
+@@ -47,14 +47,21 @@ public class RestartCommand extends Command
+         try
+         {
+             // Paper - extract method and cleanup
+-            boolean isRestarting = addShutdownHook( restartScript );
+-            if ( isRestarting )
+-            {
+-                System.out.println( "Attempting to restart with " + SpigotConfig.restartScript );
+-            } else
+-            {
+-                System.out.println( "Startup script '" + SpigotConfig.restartScript + "' does not exist! Stopping server." );
++            boolean isRestarting;
++            // Paper daemon, don't call the startup script in daemon mode, let paperd do the restart
++            if (com.destroystokyo.paper.PaperDaemon.IS_DAEMON) {
++                isRestarting = true;
++            } else {
++                isRestarting = addShutdownHook( restartScript );
++                if ( isRestarting )
++                {
++                    System.out.println( "Attempting to restart with " + SpigotConfig.restartScript );
++                } else
++                {
++                    System.out.println( "Startup script '" + SpigotConfig.restartScript + "' does not exist! Stopping server." );
++                }
+             }
++
+             // Stop the watchdog
+             WatchdogThread.doStop();
+ 
+@@ -67,7 +74,7 @@ public class RestartCommand extends Command
+     }
+ 
+     // Paper start - sync copied from above with minor changes, async added
+-    private static void shutdownServer(boolean isRestarting)
++    public static void shutdownServer(boolean isRestarting) // Paper - make public
+     {
+         if ( MinecraftServer.getServer().isMainThread() )
+         {
+@@ -95,7 +102,7 @@ public class RestartCommand extends Command
+             }
+ 
+             // Actually stop the JVM
+-            System.exit( 0 );
++            System.exit( com.destroystokyo.paper.PaperDaemon.restartExitCode() ); // Paper daemon - use paperd for restart if we are in daemon mode
+ 
+         } else
+         {
+@@ -117,7 +124,7 @@ public class RestartCommand extends Command
+ 
+             // If the server hasn't stopped by now, assume worse case and kill
+             closeSocket();
+-            System.exit( 0 );
++            System.exit( com.destroystokyo.paper.PaperDaemon.restartExitCode() ); // Paper daemon - use paperd for restart if we are in daemon mode
+         }
+     }
+     // Paper end
+-- 
+2.22.0
+
