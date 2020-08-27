@@ -7,7 +7,7 @@ This lets you run /paper fixlight <chunkRadius> (max 5) to automatically
 fix all light data in the chunks.
 
 diff --git a/src/main/java/com/destroystokyo/paper/PaperCommand.java b/src/main/java/com/destroystokyo/paper/PaperCommand.java
-index c464333646afaa52bc8e7626bb209f1c03950a64..0847a37b37745730bf9f3fc45acfe7e00358d08d 100644
+index c464333646afaa52bc8e7626bb209f1c03950a64..a0e52e967fe6475544820e44d2aa7508f4cbad59 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperCommand.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperCommand.java
 @@ -19,6 +19,7 @@ import org.bukkit.command.Command;
@@ -45,7 +45,7 @@ index c464333646afaa52bc8e7626bb209f1c03950a64..0847a37b37745730bf9f3fc45acfe7e0
              case "ver":
              case "version":
                  Command ver = org.bukkit.Bukkit.getServer().getCommandMap().getCommand("version");
-@@ -156,6 +160,77 @@ public class PaperCommand extends Command {
+@@ -156,6 +160,66 @@ public class PaperCommand extends Command {
          return true;
      }
  
@@ -81,43 +81,32 @@ index c464333646afaa52bc8e7626bb209f1c03950a64..0847a37b37745730bf9f3fc45acfe7e0
 +            sender.sendMessage("All Chunks Light updated");
 +            return;
 +        }
-+        world.getChunkProvider().getChunkAtAsynchronously(coord.x, coord.z, false, false).whenCompleteAsync((either, ex) -> {
-+            if (ex != null) {
-+                sender.sendMessage("Error loading chunk " + coord);
-+                updateLight(sender, world, lightengine, queue);
-+                return;
-+            }
-+            Chunk chunk = (Chunk) either.left().orElse(null);
-+            if (chunk == null) {
-+                updateLight(sender, world, lightengine, queue);
-+                return;
-+            }
-+            lightengine.a(world.paperConfig.lightQueueSize + 16 * 256); // ensure full chunk can fit into queue
-+            sender.sendMessage("Updating Light " + coord);
-+            int cx = chunk.getPos().x << 4;
-+            int cz = chunk.getPos().z << 4;
-+            for (int y = 0; y < world.getHeight(); y++) {
-+                for (int x = 0; x < 16; x++) {
-+                    for (int z = 0; z < 16; z++) {
-+                        BlockPosition pos = new BlockPosition(cx + x, y, cz + z);
-+                        lightengine.a(pos);
-+                    }
++        Chunk chunk = world.getChunkAt(coord.x, coord.z);
++        lightengine.a(world.paperConfig.lightQueueSize + 16 * 256); // ensure full chunk can fit into queue
++        sender.sendMessage("Updating Light " + coord);
++        int cx = chunk.getPos().x << 4;
++        int cz = chunk.getPos().z << 4;
++        for (int y = 0; y < world.getHeight(); y++) {
++            for (int x = 0; x < 16; x++) {
++                for (int z = 0; z < 16; z++) {
++                    BlockPosition pos = new BlockPosition(cx + x, y, cz + z);
++                    lightengine.a(pos);
 +                }
 +            }
-+            lightengine.queueUpdate();
-+            PlayerChunk visibleChunk = world.getChunkProvider().playerChunkMap.getVisibleChunk(chunk.coordinateKey);
-+            if (visibleChunk != null) {
-+                world.getChunkProvider().playerChunkMap.addLightTask(visibleChunk, () -> {
-+                    MinecraftServer.getServer().processQueue.add(() -> {
-+                        visibleChunk.sendPacketToTrackedPlayers(new PacketPlayOutLightUpdate(chunk.getPos(), lightengine, true), false);
-+                        updateLight(sender, world, lightengine, queue);
-+                    });
++        }
++        lightengine.queueUpdate();
++        PlayerChunk visibleChunk = world.getChunkProvider().playerChunkMap.getVisibleChunk(chunk.coordinateKey);
++        if (visibleChunk != null) {
++            world.getChunkProvider().playerChunkMap.addLightTask(visibleChunk, () -> {
++                MinecraftServer.getServer().processQueue.add(() -> {
++                    visibleChunk.sendPacketToTrackedPlayers(new PacketPlayOutLightUpdate(chunk.getPos(), lightengine, true), false);
++                    updateLight(sender, world, lightengine, queue);
 +                });
-+            } else {
-+                updateLight(sender, world, lightengine, queue);
-+            }
-+            lightengine.a(world.paperConfig.lightQueueSize);
-+        }, MinecraftServer.getServer());
++            });
++        } else {
++            updateLight(sender, world, lightengine, queue);
++        }
++        lightengine.a(world.paperConfig.lightQueueSize);
 +    }
 +
      private void doSyncLoadInfo(CommandSender sender, String[] args) {
