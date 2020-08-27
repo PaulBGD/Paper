@@ -11,10 +11,10 @@ This will drastically cut down on packet sending cost for worlds with
 lots of players in them.
 
 diff --git a/src/main/java/net/minecraft/server/PlayerList.java b/src/main/java/net/minecraft/server/PlayerList.java
-index a38b0f5dbc76214853034b0a4663d985e62111bf..869dc9226ff94d1bb0ab7e8d616778642e0f5dfd 100644
+index a38b0f5dbc76214853034b0a4663d985e62111bf..120162849b30bd5be67cd4a56d47964bcf8c7383 100644
 --- a/src/main/java/net/minecraft/server/PlayerList.java
 +++ b/src/main/java/net/minecraft/server/PlayerList.java
-@@ -1003,16 +1003,40 @@ public abstract class PlayerList {
+@@ -1003,16 +1003,29 @@ public abstract class PlayerList {
      }
  
      public void sendPacketNearby(@Nullable EntityHuman entityhuman, double d0, double d1, double d2, double d3, ResourceKey<World> resourcekey, Packet<?> packet) {
@@ -24,33 +24,22 @@ index a38b0f5dbc76214853034b0a4663d985e62111bf..869dc9226ff94d1bb0ab7e8d61677864
 +        if (entityhuman != null && entityhuman.world instanceof WorldServer) {
 +            world = (WorldServer) entityhuman.world;
 +        }
- 
--            // CraftBukkit start - Test if player receiving packet can see the source of the packet
--            if (entityhuman != null && entityhuman instanceof EntityPlayer && !entityplayer.getBukkitEntity().canSee(((EntityPlayer) entityhuman).getBukkitEntity())) {
--               continue;
++
 +        // Paper start
 +        if (world == null) {
 +            world = server.getWorldServer(resourcekey);
 +        }
-+        PlayerChunkMap chunkMap = world != null ? world.getChunkProvider().playerChunkMap : null;
-+        Object[] backingSet;
-+        if (chunkMap == null) {
-+            // Really shouldn't happen...
-+            backingSet = world != null ? world.players.toArray() : players.toArray();
-+        } else {
-+            com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<EntityPlayer> nearbyPlayers = chunkMap.playerViewDistanceBroadcastMap.getObjectsInRange(MCUtil.fastFloor(d0) >> 4, MCUtil.fastFloor(d2) >> 4);
-+            if (nearbyPlayers == null) {
-+                return;
-             }
-+            backingSet = nearbyPlayers.getBackingSet();
-+        }
++        Object[] backingSet = world != null ? world.players.toArray() : players.toArray();
 +
 +        for (Object object : backingSet) {
 +            if (!(object instanceof EntityPlayer)) continue;
 +            EntityPlayer entityplayer = (EntityPlayer) object;
 +            // Paper end
-+
-+            // CraftBukkit start - Test if player receiving packet can see the source of the packet
+ 
+             // CraftBukkit start - Test if player receiving packet can see the source of the packet
+-            if (entityhuman != null && entityhuman instanceof EntityPlayer && !entityplayer.getBukkitEntity().canSee(((EntityPlayer) entityhuman).getBukkitEntity())) {
+-               continue;
+-            }
 +            //if (entityhuman != null && entityhuman instanceof EntityPlayer && !entityplayer.getBukkitEntity().canSee(((EntityPlayer) entityhuman).getBukkitEntity())) { // Paper
 +               //continue; // Paper
 +            //} // Paper

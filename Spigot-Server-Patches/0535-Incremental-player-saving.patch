@@ -59,7 +59,7 @@ index 6a1250d87c9753a92b4e5f42c69f8b3944ef7096..24fb42897b3f7cbce4a4634ec95e4473
              // Paper start
              for (WorldServer world : getWorlds()) {
 diff --git a/src/main/java/net/minecraft/server/PlayerList.java b/src/main/java/net/minecraft/server/PlayerList.java
-index 77d1fb63c314f5e3ca0d952a48b1f8eb9adaac7c..9a9536063809d68ad0bd2121fc28ece7fb89c92a 100644
+index c536c51bbe724a669186d22445e0032641588e65..372388abe7a80fb641d857d55da6b9abcc3ef6e3 100644
 --- a/src/main/java/net/minecraft/server/PlayerList.java
 +++ b/src/main/java/net/minecraft/server/PlayerList.java
 @@ -430,6 +430,8 @@ public abstract class PlayerList {
@@ -71,7 +71,7 @@ index 77d1fb63c314f5e3ca0d952a48b1f8eb9adaac7c..9a9536063809d68ad0bd2121fc28ece7
          this.playerFileData.save(entityplayer);
          ServerStatisticManager serverstatisticmanager = (ServerStatisticManager) entityplayer.getStatisticManager(); // CraftBukkit
  
-@@ -1071,10 +1073,21 @@ public abstract class PlayerList {
+@@ -1060,10 +1062,21 @@ public abstract class PlayerList {
      }
  
      public void savePlayers() {
