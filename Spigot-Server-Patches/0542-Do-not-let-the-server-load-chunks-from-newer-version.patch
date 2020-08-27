@@ -9,7 +9,7 @@ the game, immediately stop the server to prevent data corruption.
 You can override this functionality at your own peril.
 
 diff --git a/src/main/java/net/minecraft/server/ChunkRegionLoader.java b/src/main/java/net/minecraft/server/ChunkRegionLoader.java
-index 3dfe2667da0e171dfb07f38a00d3080c0735f706..2ccf2ccbf906b44ef074608addb80d488868a4a0 100644
+index 3dfe2667da0e171dfb07f38a00d3080c0735f706..c7daafe0abcd216281c225482e663947edec0f1b 100644
 --- a/src/main/java/net/minecraft/server/ChunkRegionLoader.java
 +++ b/src/main/java/net/minecraft/server/ChunkRegionLoader.java
 @@ -47,7 +47,29 @@ public class ChunkRegionLoader {
@@ -42,3 +42,21 @@ index 3dfe2667da0e171dfb07f38a00d3080c0735f706..2ccf2ccbf906b44ef074608addb80d48
          WorldChunkManager worldchunkmanager = chunkgenerator.getWorldChunkManager();
          NBTTagCompound nbttagcompound1 = nbttagcompound.getCompound("Level"); // Paper - diff on change, see ChunkRegionLoader#getChunkCoordinate
          ChunkCoordIntPair chunkcoordintpair1 = new ChunkCoordIntPair(nbttagcompound1.getInt("xPos"), nbttagcompound1.getInt("zPos")); // Paper - diff on change, see ChunkRegionLoader#getChunkCoordinate
+@@ -201,7 +223,7 @@ public class ChunkRegionLoader {
+         }
+ 
+         if (chunkstatus_type == ChunkStatus.Type.LEVELCHUNK) {
+-            return new ProtoChunkExtension((Chunk) object);
++            return new InProgressChunkHolder(new ProtoChunkExtension((Chunk) object), tasksToExecuteOnMain);
+         } else {
+             ProtoChunk protochunk1 = (ProtoChunk) object;
+ 
+@@ -240,7 +262,7 @@ public class ChunkRegionLoader {
+                 protochunk1.a(worldgenstage_features, BitSet.valueOf(nbttagcompound5.getByteArray(s1)));
+             }
+ 
+-            return protochunk1;
++            return new InProgressChunkHolder(protochunk1, tasksToExecuteOnMain);
+         }
+     }
+ 
