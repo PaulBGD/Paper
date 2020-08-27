@@ -47,7 +47,7 @@ index 0000000000000000000000000000000000000000..df05153397b42930cd53d37b30824c7e
 +    }
 +}
 diff --git a/src/main/java/org/bukkit/World.java b/src/main/java/org/bukkit/World.java
-index bf677c0824ac476dc36b2858033b481e9b513711..66c900403ce7bbbe26d5edbe3c94ed38e71458eb 100644
+index 119669439bedf2d05142d1bb316dbe89c40a99c9..c979edc049a91b4ad07f936b84b573edae088f84 100644
 --- a/src/main/java/org/bukkit/World.java
 +++ b/src/main/java/org/bukkit/World.java
 @@ -70,6 +70,12 @@ public interface World extends PluginMessageRecipient, Metadatable {
