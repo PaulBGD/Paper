@@ -24,7 +24,7 @@ index 9a01e802fb9154eb19c8ee426682938eb92b0284..b0ce393feab22bdd00b49f795afb8955
              // if this keepSpawnInMemory is false a plugin has already removed our tickets, do not re-add
              this.removeTicketsForSpawn(this.paperConfig.keepLoadedRange, prevSpawn);
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
-index 636ce4513473a0c84cccf54e0a0148ad4a40bafa..6ebd949123d63ec8f2125143087f18ddb9e7b682 100644
+index 574e78bf78f34431305e9edbaff59bff58c3422d..8afcd707b03575f1040b8c9fab469a7958b9393d 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 @@ -387,11 +387,13 @@ public class CraftWorld implements World {

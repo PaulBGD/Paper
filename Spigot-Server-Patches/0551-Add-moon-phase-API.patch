@@ -5,7 +5,7 @@ Subject: [PATCH] Add moon phase API
 
 
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
-index 6ebd949123d63ec8f2125143087f18ddb9e7b682..ac5fbdb71843dd80baa36e7671c0f2c45fcd7b40 100644
+index 8afcd707b03575f1040b8c9fab469a7958b9393d..2f1bbd89c02b2254e1437f1cc096c61b44c5a0f0 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 @@ -326,6 +326,11 @@ public class CraftWorld implements World {

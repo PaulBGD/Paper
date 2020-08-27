@@ -5,10 +5,10 @@ Subject: [PATCH] Don't mark null chunk sections for block updates
 
 
 diff --git a/src/main/java/net/minecraft/server/PlayerChunk.java b/src/main/java/net/minecraft/server/PlayerChunk.java
-index dddc3c2f1b46b94115790ac71cbaff8b36bd718b..0dba4730bfae4260c6d05b9470dfa821e29867b4 100644
+index a51bc40bb9d7c363e92247ac1ef63ed404045996..50e142d640515ad07770844dab6df49a9693e727 100644
 --- a/src/main/java/net/minecraft/server/PlayerChunk.java
 +++ b/src/main/java/net/minecraft/server/PlayerChunk.java
-@@ -273,6 +273,7 @@ public class PlayerChunk {
+@@ -261,6 +261,7 @@ public class PlayerChunk {
                          this.a(world, blockposition, iblockdata);
                      } else {
                          ChunkSection chunksection = chunk.getSections()[sectionposition.getY()];

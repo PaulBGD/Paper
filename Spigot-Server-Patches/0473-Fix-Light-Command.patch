@@ -124,25 +124,27 @@ index c464333646afaa52bc8e7626bb209f1c03950a64..0847a37b37745730bf9f3fc45acfe7e0
          if (!SyncLoadFinder.ENABLED) {
              sender.sendMessage(ChatColor.RED + "This command requires the server startup flag '-Dpaper.debug-sync-loads=true' to be set.");
 diff --git a/src/main/java/net/minecraft/server/PlayerChunk.java b/src/main/java/net/minecraft/server/PlayerChunk.java
-index af1ea76e1f2ce4f7a318027e37c996af6713ab05..dddc3c2f1b46b94115790ac71cbaff8b36bd718b 100644
+index d7b74fd26d3344f3e69f925e5807df6b4c7ab1dc..a51bc40bb9d7c363e92247ac1ef63ed404045996 100644
 --- a/src/main/java/net/minecraft/server/PlayerChunk.java
 +++ b/src/main/java/net/minecraft/server/PlayerChunk.java
-@@ -309,6 +309,7 @@ public class PlayerChunk {
+@@ -297,6 +297,7 @@ public class PlayerChunk {
  
      }
  
 +    public void sendPacketToTrackedPlayers(Packet<?> packet, boolean flag) { a(packet, flag); } // Paper - OBFHELPER
      private void a(Packet<?> packet, boolean flag) {
-         // Paper start - per player view distance
-         // there can be potential desync with player's last mapped section and the view distance map, so use the
+         this.players.a(this.location, flag).forEach((entityplayer) -> {
+             entityplayer.playerConnection.sendPacket(packet);
 diff --git a/src/main/java/net/minecraft/server/PlayerChunkMap.java b/src/main/java/net/minecraft/server/PlayerChunkMap.java
-index 5813c285de9b229ade9ecb2106bc2d1a1cc652d7..950ec338cc23f0a2175c420e93245a1bff694f0a 100644
+index c5247efbe0ae49aa170e6ab6baceebb0450fac14..9d0652ae871a7b1b4124a33de43c6a8c87353dba 100644
 --- a/src/main/java/net/minecraft/server/PlayerChunkMap.java
 +++ b/src/main/java/net/minecraft/server/PlayerChunkMap.java
-@@ -97,6 +97,12 @@ public class PlayerChunkMap extends IChunkLoader implements PlayerChunk.d {
+@@ -96,7 +96,13 @@ public class PlayerChunkMap extends IChunkLoader implements PlayerChunk.d {
+     private boolean updatingChunksModified;
      private final ChunkTaskQueueSorter p;
      private final Mailbox<ChunkTaskQueueSorter.a<Runnable>> mailboxWorldGen;
-     final Mailbox<ChunkTaskQueueSorter.a<Runnable>> mailboxMain; // Paper - private -> package private
+-    private final Mailbox<ChunkTaskQueueSorter.a<Runnable>> mailboxMain;
++    final Mailbox<ChunkTaskQueueSorter.a<Runnable>> mailboxMain; // Paper - private -> package private
 +    // Paper start
 +    final Mailbox<ChunkTaskQueueSorter.a<Runnable>> mailboxLight;
 +    public void addLightTask(PlayerChunk playerchunk, Runnable run) {
@@ -152,7 +154,7 @@ index 5813c285de9b229ade9ecb2106bc2d1a1cc652d7..950ec338cc23f0a2175c420e93245a1b
      public final WorldLoadListener worldLoadListener;
      public final PlayerChunkMap.a chunkDistanceManager;
      private final AtomicInteger u;
-@@ -288,11 +294,12 @@ public class PlayerChunkMap extends IChunkLoader implements PlayerChunk.d {
+@@ -241,11 +247,12 @@ public class PlayerChunkMap extends IChunkLoader implements PlayerChunk.d {
          Mailbox<Runnable> mailbox = Mailbox.a("main", iasynctaskhandler::a);
  
          this.worldLoadListener = worldloadlistener;

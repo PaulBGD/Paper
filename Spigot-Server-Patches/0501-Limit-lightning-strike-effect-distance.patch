@@ -5,12 +5,12 @@ Subject: [PATCH] Limit lightning strike effect distance
 
 
 diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
-index 6a62f2000a58312773a8cb57c546d65df980b844..d5a1ade21749bba420257f3ece7878f32148d6ff 100644
+index c6843f37f89f0df8a021f6f4b3ed048e6d36549a..87c2fbb6657833b506d06a8f68587643ec544256 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
-@@ -623,4 +623,35 @@ public class PaperWorldConfig {
-     private void viewDistance() {
-         this.noTickViewDistance = this.getInt("viewdistances.no-tick-view-distance", -1);
+@@ -618,4 +618,35 @@ public class PaperWorldConfig {
+         phantomIgnoreCreative = getBoolean("phantoms-do-not-spawn-on-creative-players", phantomIgnoreCreative);
+         phantomOnlyAttackInsomniacs = getBoolean("phantoms-only-attack-insomniacs", phantomOnlyAttackInsomniacs);
      }
 +
 +    public long delayChunkUnloadsBy;

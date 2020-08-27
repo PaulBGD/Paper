@@ -11,7 +11,7 @@ This will drastically cut down on packet sending cost for worlds with
 lots of players in them.
 
 diff --git a/src/main/java/net/minecraft/server/PlayerList.java b/src/main/java/net/minecraft/server/PlayerList.java
-index f66d38a6ea5efc0fc1ac5c0a281999b55ceeb729..7313e06e017b6b1558b8b4ce970952e98009c111 100644
+index a38b0f5dbc76214853034b0a4663d985e62111bf..869dc9226ff94d1bb0ab7e8d616778642e0f5dfd 100644
 --- a/src/main/java/net/minecraft/server/PlayerList.java
 +++ b/src/main/java/net/minecraft/server/PlayerList.java
 @@ -1003,16 +1003,40 @@ public abstract class PlayerList {

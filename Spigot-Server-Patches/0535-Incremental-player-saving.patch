@@ -25,7 +25,7 @@ index 8a195b27bba189fb4d9695fec1a95c63bd0564f8..a5db404392ecf074d5e113153bc485e9
 +    }
  }
 diff --git a/src/main/java/net/minecraft/server/EntityPlayer.java b/src/main/java/net/minecraft/server/EntityPlayer.java
-index e2b48f30bc6a7485dc1bc87a7d56089b0768047b..80eff33b0b5de2d18e3ebe61159027e62609fb60 100644
+index 47c1a5796eb51fbfbd632e72405df5f96025e39e..3d54d01de310aa4440f0ffbb9a16de556920f3c4 100644
 --- a/src/main/java/net/minecraft/server/EntityPlayer.java
 +++ b/src/main/java/net/minecraft/server/EntityPlayer.java
 @@ -43,6 +43,7 @@ import org.bukkit.inventory.MainHand;
@@ -59,7 +59,7 @@ index 6a1250d87c9753a92b4e5f42c69f8b3944ef7096..24fb42897b3f7cbce4a4634ec95e4473
              // Paper start
              for (WorldServer world : getWorlds()) {
 diff --git a/src/main/java/net/minecraft/server/PlayerList.java b/src/main/java/net/minecraft/server/PlayerList.java
-index f9d87891ca75ab54c6153d534f97630c9cb2ac4e..948641573032a2f810534ac0ba35d92645e7cec3 100644
+index 77d1fb63c314f5e3ca0d952a48b1f8eb9adaac7c..9a9536063809d68ad0bd2121fc28ece7fb89c92a 100644
 --- a/src/main/java/net/minecraft/server/PlayerList.java
 +++ b/src/main/java/net/minecraft/server/PlayerList.java
 @@ -430,6 +430,8 @@ public abstract class PlayerList {

@@ -39,10 +39,10 @@ index 8fecf1172c50669604ac097c8e5d81f83087a063..831298e3bb0de4ef1bec933cf378889c
  
                      if (!flag4 && this.o <= 400 && !this.q && this.r == this.tracker.isOnGround()) {
 diff --git a/src/main/java/net/minecraft/server/PlayerChunkMap.java b/src/main/java/net/minecraft/server/PlayerChunkMap.java
-index 950ec338cc23f0a2175c420e93245a1bff694f0a..16491c4614b8d5d321874cde04c19132701ec82c 100644
+index 9d0652ae871a7b1b4124a33de43c6a8c87353dba..3a505dc66a610d78590ccb624e6bafc9445b209e 100644
 --- a/src/main/java/net/minecraft/server/PlayerChunkMap.java
 +++ b/src/main/java/net/minecraft/server/PlayerChunkMap.java
-@@ -1941,9 +1941,14 @@ public class PlayerChunkMap extends IChunkLoader implements PlayerChunk.d {
+@@ -1821,9 +1821,14 @@ public class PlayerChunkMap extends IChunkLoader implements PlayerChunk.d {
          public void updatePlayer(EntityPlayer entityplayer) {
              org.spigotmc.AsyncCatcher.catchOp("player tracker update"); // Spigot
              if (entityplayer != this.tracker) {
