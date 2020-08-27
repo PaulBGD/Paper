@@ -108,10 +108,10 @@ index 9ead9b1ea1fafaa3d684c17efbae747386b7c587..c464333646afaa52bc8e7626bb209f1c
          if (args.length < 2 || args[1].equals("*")) {
 diff --git a/src/main/java/com/destroystokyo/paper/io/SyncLoadFinder.java b/src/main/java/com/destroystokyo/paper/io/SyncLoadFinder.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..1a68a8012f83bab9e814159c76b8c3710c7b1112
+index 0000000000000000000000000000000000000000..bd66d966006e76f5d9f06a21a52cf4fe54635715
 --- /dev/null
 +++ b/src/main/java/com/destroystokyo/paper/io/SyncLoadFinder.java
-@@ -0,0 +1,172 @@
+@@ -0,0 +1,173 @@
 +package com.destroystokyo.paper.io;
 +
 +import com.google.gson.JsonArray;
@@ -121,6 +121,7 @@ index 0000000000000000000000000000000000000000..1a68a8012f83bab9e814159c76b8c371
 +import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 +import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 +import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
++import net.minecraft.server.MCUtil;
 +import net.minecraft.server.World;
 +
 +import java.util.ArrayList;
@@ -160,7 +161,7 @@ index 0000000000000000000000000000000000000000..1a68a8012f83bab9e814159c76b8c371
 +
 +                ++valueInMap.times;
 +
-+                valueInMap.coordinateTimes.compute(IOUtil.getCoordinateKey(chunkX, chunkZ), (Long keyInMap1, Integer valueInMap1) -> {
++                valueInMap.coordinateTimes.compute(MCUtil.getCoordinateKey(chunkX, chunkZ), (Long keyInMap1, Integer valueInMap1) -> {
 +                    return valueInMap1 == null ? Integer.valueOf(1) : Integer.valueOf(valueInMap1.intValue() + 1);
 +                });
 +
@@ -213,7 +214,7 @@ index 0000000000000000000000000000000000000000..1a68a8012f83bab9e814159c76b8c371
 +                for (Long2IntMap.Entry coordinate : pair.getSecond().coordinateTimes.long2IntEntrySet()) {
 +                    final long key = coordinate.getLongKey();
 +                    final int times = coordinate.getIntValue();
-+                    coordinates.add("(" + IOUtil.getCoordinateX(key) + "," + IOUtil.getCoordinateZ(key) + "): " + times);
++                    coordinates.add("(" + MCUtil.getCoordinateX(key) + "," + MCUtil.getCoordinateZ(key) + "): " + times);
 +                }
 +
 +                stacktrace.add("coordinates", coordinates);
