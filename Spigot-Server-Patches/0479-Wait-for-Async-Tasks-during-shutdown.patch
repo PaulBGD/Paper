@@ -10,7 +10,7 @@ Adds a 5 second grace period for any async tasks to finish and warns
 if any are still running after that delay just as reload does.
 
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index c8e85e8f9231b939850f1a5080bf5bcf766a76cf..4e06856b8e1b1e9432708e6b0e6e482a736873cc 100644
+index f1966d7bb2f75071fb8c78ef96a0db7d70be06db..38d4b33ce6d07584b37417a1d3c2761ed4af5c77 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
 @@ -771,6 +771,7 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas

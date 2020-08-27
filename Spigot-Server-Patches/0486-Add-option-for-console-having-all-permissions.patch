@@ -5,10 +5,10 @@ Subject: [PATCH] Add option for console having all permissions
 
 
 diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-index 1d6d15f4eb3ee088f59a3d39f38b403913364a75..4988c90b44cdea532ccf64804316a1e4d8b00fe1 100644
+index a53308448fd96d4eff1ef4f7fffe70a32ab10977..cb67d7d6503c462b6f36d787317003e3a2c53cfc 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-@@ -373,4 +373,9 @@ public class PaperConfig {
+@@ -368,4 +368,9 @@ public class PaperConfig {
  
      }
  

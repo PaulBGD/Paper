@@ -5,10 +5,10 @@ Subject: [PATCH] Fix SpawnChangeEvent not firing for all use-cases
 
 
 diff --git a/src/main/java/net/minecraft/server/WorldServer.java b/src/main/java/net/minecraft/server/WorldServer.java
-index 24061c7029e1395cb6637778b0a2d075c025b89b..51dbb4cf1823ba5c1483cca956c1fde81e40aec9 100644
+index 9a01e802fb9154eb19c8ee426682938eb92b0284..b0ce393feab22bdd00b49f795afb8955d1c9300a 100644
 --- a/src/main/java/net/minecraft/server/WorldServer.java
 +++ b/src/main/java/net/minecraft/server/WorldServer.java
-@@ -1763,12 +1763,14 @@ public class WorldServer extends World implements GeneratorAccessSeed {
+@@ -1759,12 +1759,14 @@ public class WorldServer extends World implements GeneratorAccessSeed {
      }
      // Paper end
  

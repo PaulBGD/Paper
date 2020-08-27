@@ -9,7 +9,7 @@ so inline where possible, and avoid the abstraction of the
 Either class.
 
 diff --git a/src/main/java/net/minecraft/server/ChunkProviderServer.java b/src/main/java/net/minecraft/server/ChunkProviderServer.java
-index 2bd08c1ee0048d3bfd69b189e233634fe98d53dc..8a5d148d837791f549f8ab930464be496a516c44 100644
+index 740359a16444cde100c3068ab4f2c68f0afcfe47..35388b35264789c44f0d82eeae6fe35dc7d6530f 100644
 --- a/src/main/java/net/minecraft/server/ChunkProviderServer.java
 +++ b/src/main/java/net/minecraft/server/ChunkProviderServer.java
 @@ -482,21 +482,29 @@ public class ChunkProviderServer extends IChunkProvider {

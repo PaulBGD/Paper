@@ -25,10 +25,10 @@ This successfully fixed a reoccurring and highly reproduceable crash
 for heightmaps.
 
 diff --git a/src/main/java/net/minecraft/server/ChunkProviderServer.java b/src/main/java/net/minecraft/server/ChunkProviderServer.java
-index 8a5d148d837791f549f8ab930464be496a516c44..481275bc7a43a4b3e510c29577669ede682c3f82 100644
+index 35388b35264789c44f0d82eeae6fe35dc7d6530f..396b7ada93f1d4a36c7f397669e4eb359bfa55be 100644
 --- a/src/main/java/net/minecraft/server/ChunkProviderServer.java
 +++ b/src/main/java/net/minecraft/server/ChunkProviderServer.java
-@@ -857,6 +857,7 @@ public class ChunkProviderServer extends IChunkProvider {
+@@ -819,6 +819,7 @@ public class ChunkProviderServer extends IChunkProvider {
                  return super.executeNext();
              }
          } finally {

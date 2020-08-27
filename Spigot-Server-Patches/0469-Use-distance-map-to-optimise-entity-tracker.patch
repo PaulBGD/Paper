@@ -44,10 +44,10 @@ index b8fa8a582c4e440990f7e9c426c40bb576a3af66..8fecf1172c50669604ac097c8e5d81f8
          List<Entity> list = this.tracker.getPassengers();
  
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index 485845768703e65423053975c5c0eea92c13ff82..c8e85e8f9231b939850f1a5080bf5bcf766a76cf 100644
+index 9c289c6715204d695257218173e8f017b268f8ba..f1966d7bb2f75071fb8c78ef96a0db7d70be06db 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
-@@ -1523,6 +1523,7 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -1499,6 +1499,7 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
          }
      }
  

@@ -6,7 +6,7 @@ Subject: [PATCH] Delay unsafe actions until after entity ticking is done
 This will help prevent many cases of unregistering entities during entity ticking
 
 diff --git a/src/main/java/net/minecraft/server/WorldServer.java b/src/main/java/net/minecraft/server/WorldServer.java
-index 37228419d2873ac6e1dd4d2efd4c52a4e7f710c3..46ff74110ce8c8aed38fba723547f240bf6d2eb1 100644
+index b5ee35f910dc335fb4a799b7cb17a5d8cfea7953..f43fd6f4a8f988690d6250416879cc94c92e3006 100644
 --- a/src/main/java/net/minecraft/server/WorldServer.java
 +++ b/src/main/java/net/minecraft/server/WorldServer.java
 @@ -62,6 +62,16 @@ public class WorldServer extends World implements GeneratorAccessSeed {
@@ -26,7 +26,7 @@ index 37228419d2873ac6e1dd4d2efd4c52a4e7f710c3..46ff74110ce8c8aed38fba723547f240
      private final MinecraftServer server;
      public final WorldDataServer worldDataServer; // CraftBukkit - type
      public boolean savingDisabled;
-@@ -455,6 +465,16 @@ public class WorldServer extends World implements GeneratorAccessSeed {
+@@ -453,6 +463,16 @@ public class WorldServer extends World implements GeneratorAccessSeed {
              timings.entityTick.stopTiming(); // Spigot
  
              this.tickingEntities = false;
@@ -40,6 +40,6 @@ index 37228419d2873ac6e1dd4d2efd4c52a4e7f710c3..46ff74110ce8c8aed38fba723547f240
 +            }
 +            this.afterEntityTickingTasks.clear();
 +            // Paper end
-             this.getMinecraftServer().midTickLoadChunks(); // Paper
  
              Entity entity2;
+ 

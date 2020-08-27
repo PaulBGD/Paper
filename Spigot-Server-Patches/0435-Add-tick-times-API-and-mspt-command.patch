@@ -75,7 +75,7 @@ index 0000000000000000000000000000000000000000..d0211d4f39f9d6af1d751ac66342b42c
 +    }
 +}
 diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-index f9f64c215517a764323d114dc491ee11aad8495c..b193605a6d04a063c5e9e8c936fdde8e26d9a3dd 100644
+index f1848acf317bb22a9f7ebee2e0036ce9921bc198..810a7c54ecdd7fee02262dfadf53af2e88318d9c 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
 @@ -68,6 +68,7 @@ public class PaperConfig {
@@ -87,7 +87,7 @@ index f9f64c215517a764323d114dc491ee11aad8495c..b193605a6d04a063c5e9e8c936fdde8e
          version = getInt("config-version", 20);
          set("config-version", 20);
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index 14145d423f1ce603004ad8138ac2b62ade6fc757..a0598a03418dbbc5ab4650ca17d210d84069a133 100644
+index 7e4473a7d416187f5bce30f0f08601197133eb4d..b465c4372078e022192fcf3ebaeb3cdb5dbc8e56 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
 @@ -107,6 +107,11 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
@@ -102,7 +102,7 @@ index 14145d423f1ce603004ad8138ac2b62ade6fc757..a0598a03418dbbc5ab4650ca17d210d8
      @Nullable
      private KeyPair H;
      @Nullable
-@@ -1213,6 +1218,12 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -1194,6 +1199,12 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
          this.ag = this.ag * 0.8F + (float) l / 1000000.0F * 0.19999999F;
          long i1 = SystemUtils.getMonotonicNanos();
  
@@ -115,7 +115,7 @@ index 14145d423f1ce603004ad8138ac2b62ade6fc757..a0598a03418dbbc5ab4650ca17d210d8
          this.circularTimer.a(i1 - i);
          this.methodProfiler.exit();
          org.spigotmc.WatchdogThread.tick(); // Spigot
-@@ -2175,4 +2186,30 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -2151,4 +2162,30 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
      public IRegistryCustom aX() {
          return this.f;
      }

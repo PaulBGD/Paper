@@ -6,10 +6,10 @@ Subject: [PATCH] Prevent headless pistons from being created
 Prevent headless pistons from being created by explosions or tree/mushroom growth.
 
 diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-index 5ec3128ca715c325436839381253615012509e1c..5ce435f9ccbd85355c05d11af92a7de1203ad339 100644
+index a5db404392ecf074d5e113153bc485e9ab6899e5..005521528b8ab78220076a8ea07a224b8a21cca9 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-@@ -385,6 +385,12 @@ public class PaperConfig {
+@@ -380,6 +380,12 @@ public class PaperConfig {
          set("settings.unsupported-settings.allow-tnt-duplication", null);
      }
  

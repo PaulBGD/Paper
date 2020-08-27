@@ -32,10 +32,10 @@ This patch fixes https://bugs.mojang.com/browse/MC-188840
 This patch also fixes rail duping and carpet duping.
 
 diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-index 4988c90b44cdea532ccf64804316a1e4d8b00fe1..cbf96f184a5b8ebb7ded92ca8e63900b122eb330 100644
+index cb67d7d6503c462b6f36d787317003e3a2c53cfc..8a195b27bba189fb4d9695fec1a95c63bd0564f8 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-@@ -378,4 +378,10 @@ public class PaperConfig {
+@@ -373,4 +373,10 @@ public class PaperConfig {
          consoleHasAllPermissions = getBoolean("settings.console-has-all-permissions", consoleHasAllPermissions);
      }
  

@@ -13,14 +13,13 @@ A config is provided if you rather let players use these exploits, and let
 them destroy the worlds End Portals and get on top of the nether easy.
 
 diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-index b193605a6d04a063c5e9e8c936fdde8e26d9a3dd..1d6d15f4eb3ee088f59a3d39f38b403913364a75 100644
+index 810a7c54ecdd7fee02262dfadf53af2e88318d9c..a53308448fd96d4eff1ef4f7fffe70a32ab10977 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
-@@ -360,4 +360,17 @@ public class PaperConfig {
-     private static void midTickChunkTasks() {
-         midTickChunkTasks = getInt("settings.chunk-tasks-per-tick", midTickChunkTasks);
+@@ -356,4 +356,16 @@ public class PaperConfig {
+         }
      }
-+
+ 
 +    public static boolean allowBlockPermanentBreakingExploits = false;
 +    private static void allowBlockPermanentBreakingExploits() {
 +        if (config.contains("allow-perm-block-break-exploits")) {

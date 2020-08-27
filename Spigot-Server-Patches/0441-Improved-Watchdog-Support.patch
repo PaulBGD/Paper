@@ -109,7 +109,7 @@ index 46959b58bac01b5ff7e3eb4cbac07ddf6bfc4ebc..4452acc933c852749e2de92409aed393
          }
  
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index a0598a03418dbbc5ab4650ca17d210d84069a133..485845768703e65423053975c5c0eea92c13ff82 100644
+index b465c4372078e022192fcf3ebaeb3cdb5dbc8e56..9c289c6715204d695257218173e8f017b268f8ba 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
 @@ -159,7 +159,7 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
@@ -203,7 +203,7 @@ index a0598a03418dbbc5ab4650ca17d210d84069a133..485845768703e65423053975c5c0eea9
                  org.spigotmc.WatchdogThread.hasStarted = true; // Paper
                  Arrays.fill( recentTps, 20 );
                  long start = System.nanoTime(), curTime, tickSection = start; // Paper - Further improve server tick loop
-@@ -969,6 +1007,12 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -968,6 +1006,12 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
                  this.a((CrashReport) null);
              }
          } catch (Throwable throwable) {
@@ -216,7 +216,7 @@ index a0598a03418dbbc5ab4650ca17d210d84069a133..485845768703e65423053975c5c0eea9
              MinecraftServer.LOGGER.error("Encountered an unexpected exception", throwable);
              // Spigot Start
              if ( throwable.getCause() != null )
-@@ -1000,14 +1044,14 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -999,14 +1043,14 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
              } catch (Throwable throwable1) {
                  MinecraftServer.LOGGER.error("Exception stopping the server", throwable1);
              } finally {
@@ -234,7 +234,7 @@ index a0598a03418dbbc5ab4650ca17d210d84069a133..485845768703e65423053975c5c0eea9
              }
  
          }
-@@ -1063,6 +1107,12 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -1045,6 +1089,12 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
  
      @Override
      protected TickTask postToMainThread(Runnable runnable) {
@@ -247,7 +247,7 @@ index a0598a03418dbbc5ab4650ca17d210d84069a133..485845768703e65423053975c5c0eea9
          return new TickTask(this.ticks, runnable);
      }
  
-@@ -1305,6 +1355,7 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -1281,6 +1331,7 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
                  try {
                      crashreport = CrashReport.a(throwable, "Exception ticking world");
                  } catch (Throwable t) {
@@ -255,7 +255,7 @@ index a0598a03418dbbc5ab4650ca17d210d84069a133..485845768703e65423053975c5c0eea9
                      throw new RuntimeException("Error generating crash report", t);
                  }
                  // Spigot End
-@@ -1756,7 +1807,8 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -1732,7 +1783,8 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
              this.resourcePackRepository.a(collection);
              this.saveData.a(a(this.resourcePackRepository));
              datapackresources.i();

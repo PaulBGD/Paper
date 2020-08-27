@@ -39,10 +39,10 @@ index a16495f69626356e5312f8804c66d40a29894b7e..1c878265be0f458ff264bc4a4011397e
  
      @Override
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index 4e06856b8e1b1e9432708e6b0e6e482a736873cc..db04e2f3451a22abe6e89c453d32b774f9e764bf 100644
+index 38d4b33ce6d07584b37417a1d3c2761ed4af5c77..6a1250d87c9753a92b4e5f42c69f8b3944ef7096 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
-@@ -1516,11 +1516,14 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+@@ -1492,11 +1492,14 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
          this.H = keypair;
      }
  
